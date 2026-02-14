@@ -129,5 +129,34 @@ pipeline {
         }
       }
     }
+
+    stage('Promote') {
+      when {
+        branch 'develop'
+      }
+      steps {
+       withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+        sh '''#!/bin/bash
+          set -euo pipefail
+      
+          git config user.name  "jenkins"
+          git config user.email "jenkins@local"
+      
+          git remote set-url origin https://github.com/AndreaSil/todo-list-aws.git
+          git fetch origin
+      
+          git checkout master
+          git reset --hard origin/master
+          git merge --no-ff origin/develop -m "Release: promote develop to master"
+      
+          TAG="release-${BUILD_NUMBER}"
+          git tag -a "$TAG" -m "Release $TAG"
+      
+          git push https://${GIT_USER}:${GIT_TOKEN}@github.com/AndreaSil/todo-list-aws.git master
+          git push https://${GIT_USER}:${GIT_TOKEN}@github.com/AndreaSil/todo-list-aws.git --tags
+        '''
+      }
+      }
+    }
   }
 }
