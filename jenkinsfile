@@ -70,31 +70,26 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
+    stage('Deploy (samconfig staging)') {
       steps {
         sh '''#!/bin/bash
           set -e
           export AWS_DEFAULT_REGION="${AWS_REGION}"
           export SAM_CLI_TELEMETRY=0
-
-          echo "== Deploy (NO samconfig, bucket gestionado con --resolve-s3) =="
-
-          sam deploy \
-            --template-file .aws-sam/build/template.yaml \
-            --stack-name "${STACK_NAME}" \
+    
+          echo "== Deploy usando samconfig.toml (staging) =="
+          sam deploy --config-env staging \
             --region "${AWS_REGION}" \
-            --capabilities CAPABILITY_IAM \
-            --resolve-s3 \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
-
+    
           echo "== Sacar URL del API (CloudFormation Outputs) =="
           aws cloudformation describe-stacks \
             --stack-name "${STACK_NAME}" \
             --region "${AWS_REGION}" \
             --query "Stacks[0].Outputs[].OutputValue | [?contains(@,'http')]|[0]" \
             --output text > api_url.txt
-
+    
           echo "API_URL=$(cat api_url.txt)"
           test -s api_url.txt
         '''
