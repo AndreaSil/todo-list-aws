@@ -73,7 +73,7 @@ pipeline {
     stage('Deploy (samconfig staging)') {
       steps {
         sh '''#!/bin/bash
-          set -e
+          set -euo pipefail
           export AWS_DEFAULT_REGION="${AWS_REGION}"
           export SAM_CLI_TELEMETRY=0
     
