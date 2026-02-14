@@ -1,0 +1,126 @@
+pipeline {
+  agent any
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+  }
+
+  environment {
+    AWS_REGION         = "us-east-1"
+    AWS_DEFAULT_REGION = "us-east-1"
+
+    // OJO: este stack lo define samconfig.toml en [staging]
+    STACK_NAME         = "todo-list-aws-staging"
+
+    SRC_DIR            = "src"
+    PYTEST_FILE        = "test/integration/todoApiTest.py"
+  }
+
+  stages {
+
+    stage('Get Code') {
+      steps {
+        deleteDir()
+        checkout scm
+        sh 'git rev-parse --abbrev-ref HEAD'
+      }
+    }
+
+    stage('Static Test') {
+      steps {
+        sh '''#!/bin/bash
+          set -e
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install --upgrade pip
+          pip install flake8 flake8-html bandit
+          mkdir -p reports
+          flake8 ${SRC_DIR} --format=html --htmldir=reports/flake8 || true
+          bandit -r ${SRC_DIR} -f html -o reports/bandit.html || true
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts artifacts: 'reports/**', fingerprint: true
+        }
+      }
+    }
+
+    stage('Build') {
+      steps {
+        sh '''#!/bin/bash
+          set -e
+          export SAM_CLI_TELEMETRY=0
+          sam build --use-container
+        '''
+      }
+    }
+
+    stage('Validate') {
+      steps {
+        sh '''#!/bin/bash
+          set -e
+          sam validate --region "${AWS_REGION}"
+        '''
+      }
+    }
+
+    stage('Deploy (samconfig staging)') {
+      steps {
+        sh '''#!/bin/bash
+          set -e
+          export SAM_CLI_TELEMETRY=0
+          export AWS_DEFAULT_REGION="${AWS_REGION}"
+
+          echo "== Deploy usando samconfig.toml (staging) =="
+          sam deploy --config-env staging \
+            --region "${AWS_REGION}" \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset
+
+          echo "== Sacar URL del API (CloudFormation Outputs) =="
+          aws cloudformation describe-stacks \
+            --stack-name "${STACK_NAME}" \
+            --region "${AWS_REGION}" \
+            --query "Stacks[0].Outputs[].OutputValue | [?contains(@,'http')]|[0]" \
+            --output text > api_url.txt
+
+          echo "API_URL=$(cat api_url.txt)"
+          test -s api_url.txt
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts allowEmptyArchive: true, artifacts: 'api_url.txt', fingerprint: true
+        }
+      }
+    }
+
+    stage('Rest Test (pytest)') {
+      steps {
+        sh '''#!/bin/bash
+          set -e
+
+          API_URL="$(cat api_url.txt)"
+          echo "Testing BASE_URL=$API_URL"
+          export BASE_URL="$API_URL"
+
+          python3 -m venv .venv-test
+          . .venv-test/bin/activate
+          pip install --upgrade pip
+          pip install pytest requests
+
+          mkdir -p reports
+          pytest -q "${PYTEST_FILE}" --junitxml=reports/pytest-integration.xml
+        '''
+      }
+      post {
+        always {
+          archiveArtifacts allowEmptyArchive: true, artifacts: 'reports/pytest-integration.xml', fingerprint: true
+          junit 'reports/pytest-integration.xml'
+        }
+      }
+    }
+  }
+}
