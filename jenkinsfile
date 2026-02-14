@@ -8,7 +8,7 @@ pipeline {
   environment {
     AWS_REGION         = "us-east-1"
     AWS_DEFAULT_REGION = "us-east-1"
-    STACK_NAME         = "todo-list-aws-staging"
+    STACK_NAME         = "staging-todo-list-aws"
     SRC_DIR            = "src"
     PYTEST_FILE        = "test/integration/todoApiTest.py"
   }
