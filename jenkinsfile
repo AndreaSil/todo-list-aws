@@ -131,9 +131,6 @@ pipeline {
     }
 
     stage('Promote') {
-      when {
-        branch 'develop'
-      }
       steps {
        withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
         sh '''#!/bin/bash
