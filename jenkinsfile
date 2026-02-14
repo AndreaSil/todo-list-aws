@@ -1,6 +1,5 @@
 pipeline {
   agent any
-
   options {
     timestamps()
     disableConcurrentBuilds()
@@ -9,10 +8,7 @@ pipeline {
   environment {
     AWS_REGION         = "us-east-1"
     AWS_DEFAULT_REGION = "us-east-1"
-
-    // OJO: este stack lo define samconfig.toml en [staging]
     STACK_NAME         = "todo-list-aws-staging"
-
     SRC_DIR            = "src"
     PYTEST_FILE        = "test/integration/todoApiTest.py"
   }
@@ -22,14 +18,17 @@ pipeline {
     stage('Get Code') {
       steps {
         deleteDir()
-        checkout scm
-        sh 'git rev-parse --abbrev-ref HEAD'
+        sh '''
+          set -e
+          git clone -b develop https://github.com/AndreaSil/todo-list-aws.git .
+          git rev-parse --abbrev-ref HEAD
+        '''
       }
     }
 
     stage('Static Test') {
       steps {
-        sh '''#!/bin/bash
+        sh '''
           set -e
           python3 -m venv .venv
           . .venv/bin/activate
@@ -52,6 +51,8 @@ pipeline {
         sh '''#!/bin/bash
           set -e
           export SAM_CLI_TELEMETRY=0
+          export AWS_DEFAULT_REGION="${AWS_REGION}"
+
           sam build --use-container
         '''
       }
@@ -61,21 +62,29 @@ pipeline {
       steps {
         sh '''#!/bin/bash
           set -e
+          export AWS_DEFAULT_REGION="${AWS_REGION}"
+
+          # valida el template ORIGINAL o el build (ambos valen)
           sam validate --region "${AWS_REGION}"
         '''
       }
     }
 
-    stage('Deploy (samconfig staging)') {
+    stage('Deploy') {
       steps {
         sh '''#!/bin/bash
           set -e
-          export SAM_CLI_TELEMETRY=0
           export AWS_DEFAULT_REGION="${AWS_REGION}"
+          export SAM_CLI_TELEMETRY=0
 
-          echo "== Deploy usando samconfig.toml (staging) =="
-          sam deploy --config-env staging \
+          echo "== Deploy (NO samconfig, bucket gestionado con --resolve-s3) =="
+
+          sam deploy \
+            --template-file .aws-sam/build/template.yaml \
+            --stack-name "${STACK_NAME}" \
             --region "${AWS_REGION}" \
+            --capabilities CAPABILITY_IAM \
+            --resolve-s3 \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
 
@@ -96,14 +105,16 @@ pipeline {
         }
       }
     }
-
-    stage('Rest Test (pytest)') {
+    
+    stage('Rest Test') {
       steps {
         sh '''#!/bin/bash
           set -e
 
           API_URL="$(cat api_url.txt)"
           echo "Testing BASE_URL=$API_URL"
+
+          # OJO: el test usa BASE_URL (no API_URL)
           export BASE_URL="$API_URL"
 
           python3 -m venv .venv-test
