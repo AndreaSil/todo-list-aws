@@ -80,6 +80,7 @@ pipeline {
           echo "== Deploy usando samconfig.toml (staging) =="
           sam deploy --config-env staging \
             --region "${AWS_REGION}" \
+            --resolve-s3 \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
     
