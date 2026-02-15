@@ -27,32 +27,32 @@ pipeline {
 
     stage('Samconfig') {
       steps {
-        sh '''#!/bin/bash
-          set -euo pipefail
-          test -f samconfig.toml
-    
-          python3 - <<'PY' > stack_env.txt
-    import tomllib
-    
-    with open("samconfig.toml", "rb") as f:
-        cfg = tomllib.load(f)
-    
-    p = cfg["production"]["deploy"]["parameters"]
-    stack_name = p.get("stack_name")
-    
-    g = cfg.get("production", {}).get("global", {}).get("parameters", {})
-    region = g.get("region") or p.get("region") or "us-east-1"
-    
-    if not stack_name:
-        raise SystemExit("ERROR: No encuentro production.deploy.parameters.stack_name en samconfig.toml")
-    
-    print(f"STACK_NAME={stack_name}")
-    print(f"REGION={region}")
-    PY
-    
-          echo "== stack_env.txt =="
-          cat stack_env.txt
-        '''
+    sh '''#!/bin/bash
+set -euo pipefail
+test -f samconfig.toml
+
+python3 - <<'PY' > stack_env.txt
+import tomllib
+
+with open("samconfig.toml", "rb") as f:
+    cfg = tomllib.load(f)
+
+p = cfg["production"]["deploy"]["parameters"]
+stack_name = p.get("stack_name")
+
+g = cfg.get("production", {}).get("global", {}).get("parameters", {})
+region = g.get("region") or p.get("region") or "us-east-1"
+
+if not stack_name:
+    raise SystemExit("ERROR: No encuentro production.deploy.parameters.stack_name en samconfig.toml")
+
+print(f"STACK_NAME={stack_name}")
+print(f"REGION={region}")
+PY
+
+echo "== stack_env.txt =="
+cat stack_env.txt
+'''
       }
       post {
         always {
@@ -60,6 +60,7 @@ pipeline {
         }
       }
     }
+
 
 
     stage('Build') {
