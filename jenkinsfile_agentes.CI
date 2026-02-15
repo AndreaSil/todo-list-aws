@@ -94,9 +94,9 @@ pipeline {
     
           echo "API_URL=$(cat api_url.txt)"
           test -s api_url.txt
-
-          stash name: 'apiurl', includes: 'api_url.txt'
         '''
+        
+        stash name: 'apiurl', includes: 'api_url.txt'
       }
       post {
         always {
@@ -108,6 +108,8 @@ pipeline {
     stage('Rest Test') {
       agent { label 'tests' }
       steps {
+        unstash 'apiurl'
+
         sh '''#!/bin/bash
           set -e
 
