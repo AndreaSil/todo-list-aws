@@ -108,6 +108,7 @@ cat stack_env.txt
           echo "API_URL=$(cat api_url.txt)"
           test -s api_url.txt
         '''
+        stash name: 'apiurl', includes: 'api_url.txt'
       }
       post {
         always {
@@ -119,8 +120,8 @@ cat stack_env.txt
     stage('Rest Test') {
       agent { label 'tests' }
       steps {
-        unstash 'src'
-        unstash 'apiurl
+        unstash 'apiurl'
+
         sh '''#!/bin/bash
           set -euo pipefail
 
