@@ -97,7 +97,6 @@ cat stack_env.txt
           echo "Deploy"
           sam deploy --config-env production \
             --region "$REGION" \
-            --resolve-s3 \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
 
