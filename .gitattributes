@@ -1,0 +1,2 @@
+jenkinsfile merge=ours
+jenkinsfile_agentes.CI merge=ours
