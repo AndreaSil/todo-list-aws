@@ -149,7 +149,7 @@ pipeline {
           git fetch origin --prune
 
           git reset --hard
-          git clean -fd
+          git clean -fdx -q
           rm -f api_url.txt
   
           git checkout -B master origin/master
