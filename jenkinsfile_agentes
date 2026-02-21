@@ -183,7 +183,7 @@ pipeline {
             git -c merge.renames=false merge --no-ff origin/develop -m "Release: promote develop to master"
           fi
   
-          git checkout origin/master -- jenkinsfile jenkinsfile_agentes 2>/dev/null || true
+     //     git checkout origin/master -- jenkinsfile jenkinsfile_agentes 2>/dev/null || true
   
           git rm -f --ignore-unmatch jenkinsfile_agentes.CI jenkinsfile_agentes.CD
   
