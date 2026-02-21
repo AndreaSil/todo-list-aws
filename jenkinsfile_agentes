@@ -141,19 +141,37 @@ pipeline {
        withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
         sh '''#!/bin/bash
           set -euo pipefail
-      
+
           git config user.name  "jenkins"
           git config user.email "jenkins@local"
-      
+  
           git remote set-url origin https://github.com/AndreaSil/todo-list-aws.git
-          git fetch origin
-      
-          git checkout master
-          git merge --abort || true
+          git fetch origin --prune
+  
+          git checkout -B master origin/master
           git reset --hard origin/master
+  
           git config merge.ours.driver true
+
+          set +e
           git merge --no-ff origin/develop -m "Release: promote develop to master"
-      
+          rc=$?
+          set -e
+  
+          if [ $rc -ne 0 ]; then
+            git merge --abort || true
+            git reset --hard origin/master
+            git -c merge.renames=false merge --no-ff origin/develop -m "Release: promote develop to master"
+          fi
+  
+          git checkout origin/master -- jenkinsfile jenkinsfile_agentes 2>/dev/null || true
+  
+          git rm -f --ignore-unmatch jenkinsfile_agentes.CI jenkinsfile_agentes.CD
+  
+          git add -A
+
+          git diff --cached --quiet || git commit -m "chore: keep Jenkinsfiles unchanged on master"
+        
           TAG="release-${BUILD_NUMBER}"
           git tag -a "$TAG" -m "Release $TAG"
 
