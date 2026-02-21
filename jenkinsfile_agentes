@@ -23,6 +23,9 @@ pipeline {
 
           git clone -b master https://github.com/AndreaSil/todo-list-aws.git .
           git rev-parse --abbrev-ref HEAD
+
+          curl -fsSL -o samconfig.toml \
+          https://raw.githubusercontent.com/AndreaSil/todo-list-aws-config/production/samconfig.toml
         '''
       }
     }
