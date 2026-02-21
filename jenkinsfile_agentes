@@ -9,6 +9,7 @@ pipeline {
     SAM_CLI_TELEMETRY  = "0"
     AWS_REGION         = "us-east-1"   
     AWS_DEFAULT_REGION = "us-east-1"
+    
     PYTEST_FILE        = "test/integration/todoApiTest.py"
   }
 
@@ -19,6 +20,7 @@ pipeline {
         deleteDir()
         sh '''
           set -e
+
           git clone -b master https://github.com/AndreaSil/todo-list-aws.git .
           git rev-parse --abbrev-ref HEAD
         '''
