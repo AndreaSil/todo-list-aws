@@ -20,6 +20,8 @@ pipeline {
         deleteDir()
         sh '''
           set -e
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           git clone -b develop https://github.com/AndreaSil/todo-list-aws.git .
           git rev-parse --abbrev-ref HEAD
         '''
@@ -31,6 +33,8 @@ pipeline {
       steps {
         sh '''
           set -e
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           python3 -m venv .venv
           . .venv/bin/activate
           pip install --upgrade pip
@@ -51,6 +55,8 @@ pipeline {
       steps {
         sh '''#!/bin/bash
           set -e
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           export SAM_CLI_TELEMETRY=0
           export AWS_DEFAULT_REGION="${AWS_REGION}"
 
@@ -63,6 +69,8 @@ pipeline {
       steps {
         sh '''#!/bin/bash
           set -e
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           export AWS_DEFAULT_REGION="${AWS_REGION}"
 
           # valida el template ORIGINAL o el build (ambos valen)
@@ -75,6 +83,8 @@ pipeline {
       steps {
         sh '''#!/bin/bash
           set -euo pipefail
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           export AWS_DEFAULT_REGION="${AWS_REGION}"
           export SAM_CLI_TELEMETRY=0
 
@@ -112,6 +122,7 @@ pipeline {
 
         sh '''#!/bin/bash
           set -e
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
 
           API_URL="$(cat api_url.txt)"
           echo "Testing BASE_URL=$API_URL"
@@ -141,6 +152,7 @@ pipeline {
        withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
         sh '''#!/bin/bash
           set -euo pipefail
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
 
           git config user.name  "jenkins"
           git config user.email "jenkins@local"
