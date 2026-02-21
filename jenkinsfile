@@ -6,10 +6,9 @@ pipeline {
   }
 
   environment {
-    AWS_REGION         = "us-east-1"
+    SAM_CLI_TELEMETRY  = "0"
+    AWS_REGION         = "us-east-1"   
     AWS_DEFAULT_REGION = "us-east-1"
-    STACK_NAME         = "staging-todo-list-aws"
-    SRC_DIR            = "src"
     PYTEST_FILE        = "test/integration/todoApiTest.py"
   }
 
@@ -20,38 +19,56 @@ pipeline {
         deleteDir()
         sh '''
           set -e
-          git clone -b develop https://github.com/AndreaSil/todo-list-aws.git .
+          git clone -b master https://github.com/AndreaSil/todo-list-aws.git .
           git rev-parse --abbrev-ref HEAD
         '''
       }
     }
 
-    stage('Static Test') {
+    stage('Samconfig') {
       steps {
-        sh '''
-          set -e
-          python3 -m venv .venv
-          . .venv/bin/activate
-          pip install --upgrade pip
-          pip install flake8 flake8-html bandit
-          mkdir -p reports
-          flake8 ${SRC_DIR} --format=html --htmldir=reports/flake8 || true
-          bandit -r ${SRC_DIR} -f html -o reports/bandit.html || true
-        '''
+    sh '''#!/bin/bash
+set -euo pipefail
+test -f samconfig.toml
+
+python3 - <<'PY' > stack_env.txt
+import tomllib
+
+with open("samconfig.toml", "rb") as f:
+    cfg = tomllib.load(f)
+
+p = cfg["production"]["deploy"]["parameters"]
+stack_name = p.get("stack_name")
+
+g = cfg.get("production", {}).get("global", {}).get("parameters", {})
+region = g.get("region") or p.get("region") or "us-east-1"
+
+if not stack_name:
+    raise SystemExit("ERROR: No encuentro production.deploy.parameters.stack_name en samconfig.toml")
+
+print(f"STACK_NAME={stack_name}")
+print(f"REGION={region}")
+PY
+
+echo "== stack_env.txt =="
+cat stack_env.txt
+'''
       }
       post {
         always {
-          archiveArtifacts artifacts: 'reports/**', fingerprint: true
+          archiveArtifacts allowEmptyArchive: true, artifacts: 'stack_env.txt', fingerprint: true
         }
       }
     }
 
+
+
     stage('Build') {
       steps {
         sh '''#!/bin/bash
-          set -e
-          export SAM_CLI_TELEMETRY=0
-          export AWS_DEFAULT_REGION="${AWS_REGION}"
+          set -euo pipefail
+          source stack_env.txt
+          export AWS_DEFAULT_REGION="$REGION"
 
           sam build --use-container
         '''
@@ -61,36 +78,35 @@ pipeline {
     stage('Validate') {
       steps {
         sh '''#!/bin/bash
-          set -e
-          export AWS_DEFAULT_REGION="${AWS_REGION}"
+          set -euo pipefail
+          source stack_env.txt
+          export AWS_DEFAULT_REGION="$REGION"
 
-          # valida el template ORIGINAL o el build (ambos valen)
-          sam validate --region "${AWS_REGION}"
+          sam validate --region "$REGION"
         '''
       }
     }
 
-    stage('Deploy (samconfig staging)') {
+    stage('Deploy (production)') {
       steps {
         sh '''#!/bin/bash
           set -euo pipefail
-          export AWS_DEFAULT_REGION="${AWS_REGION}"
-          export SAM_CLI_TELEMETRY=0
-    
-          echo "== Deploy usando samconfig.toml (staging) =="
-          sam deploy --config-env staging \
-            --region "${AWS_REGION}" \
+          source stack_env.txt
+          export AWS_DEFAULT_REGION="$REGION"
+
+          echo "Deploy"
+          sam deploy --config-env production \
+            --region "$REGION" \
             --resolve-s3 \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
-    
-          echo "== Sacar URL del API (CloudFormation Outputs) =="
+
           aws cloudformation describe-stacks \
-            --stack-name "${STACK_NAME}" \
-            --region "${AWS_REGION}" \
+            --stack-name "$STACK_NAME" \
+            --region "$REGION" \
             --query "Stacks[0].Outputs[].OutputValue | [?contains(@,'http')]|[0]" \
             --output text > api_url.txt
-    
+
           echo "API_URL=$(cat api_url.txt)"
           test -s api_url.txt
         '''
@@ -101,58 +117,31 @@ pipeline {
         }
       }
     }
-    
-    stage('Rest Test') {
+
+    stage('Rest Test (read-only)') {
       steps {
         sh '''#!/bin/bash
-          set -e
+          set -euo pipefail
 
           API_URL="$(cat api_url.txt)"
-          echo "Testing BASE_URL=$API_URL"
-
-          # OJO: el test usa BASE_URL (no API_URL)
           export BASE_URL="$API_URL"
+          echo "BASE_URL=$BASE_URL"
 
           python3 -m venv .venv-test
           . .venv-test/bin/activate
-          pip install --upgrade pip
+          pip install -U pip
           pip install pytest requests
 
           mkdir -p reports
-          pytest -q "${PYTEST_FILE}" --junitxml=reports/pytest-integration.xml
+
+          pytest -q "${PYTEST_FILE}" -m "readonly" --junitxml=reports/pytest-prod-readonly.xml        
         '''
       }
       post {
         always {
-          archiveArtifacts allowEmptyArchive: true, artifacts: 'reports/pytest-integration.xml', fingerprint: true
-          junit 'reports/pytest-integration.xml'
+          archiveArtifacts allowEmptyArchive: true, artifacts: 'reports/pytest-prod-readonly.xml', fingerprint: true
+          junit allowEmptyResults: true, testResults: 'reports/pytest-prod-readonly.xml'
         }
-      }
-    }
-
-    stage('Promote') {
-      steps {
-       withCredentials([usernamePassword(credentialsId: 'github-pat', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
-        sh '''#!/bin/bash
-          set -euo pipefail
-      
-          git config user.name  "jenkins"
-          git config user.email "jenkins@local"
-      
-          git remote set-url origin https://github.com/AndreaSil/todo-list-aws.git
-          git fetch origin
-      
-          git checkout master
-          git reset --hard origin/master
-          git merge --no-ff origin/develop -m "Release: promote develop to master"
-      
-          TAG="release-${BUILD_NUMBER}"
-          git tag -a "$TAG" -m "Release $TAG"
-      
-          git push https://${GIT_USER}:${GIT_TOKEN}@github.com/AndreaSil/todo-list-aws.git master
-          git push https://${GIT_USER}:${GIT_TOKEN}@github.com/AndreaSil/todo-list-aws.git --tags
-        '''
-      }
       }
     }
   }
