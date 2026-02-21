@@ -142,6 +142,10 @@ pipeline {
           git remote set-url origin https://github.com/AndreaSil/todo-list-aws.git
           git fetch origin
 
+          git reset --hard
+          git clean -fd
+          rm -f api_url.txt
+
           git checkout master
           git reset --hard origin/master
           git merge --no-ff origin/develop -m "Release: promote develop to master"
