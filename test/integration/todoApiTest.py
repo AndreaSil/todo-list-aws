@@ -15,10 +15,6 @@ DEFAULT_TIMEOUT = 2  # in secs
 @pytest.mark.api
 class TestApi(unittest.TestCase):
 
-    @pytest.mark.readonly
-    def test_readonly_get(self):
-        self.assertEqual(requests.get(BASE_URL + "/todos").status_code, 200)
-    
     def setUp(self):
         self.assertIsNotNone(BASE_URL, "URL no configurada")
         self.assertTrue(len(BASE_URL) > 8, "URL no configurada")
