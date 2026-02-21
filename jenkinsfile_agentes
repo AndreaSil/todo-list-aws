@@ -19,6 +19,8 @@ pipeline {
         deleteDir()
         sh '''
           set -e
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           git clone -b master https://github.com/AndreaSil/todo-list-aws.git .
           git rev-parse --abbrev-ref HEAD
         '''
@@ -65,6 +67,8 @@ cat stack_env.txt
       steps {
         sh '''#!/bin/bash
           set -euo pipefail
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           source stack_env.txt
           export AWS_DEFAULT_REGION="$REGION"
 
@@ -77,6 +81,8 @@ cat stack_env.txt
       steps {
         sh '''#!/bin/bash
           set -euo pipefail
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           source stack_env.txt
           export AWS_DEFAULT_REGION="$REGION"
 
@@ -89,6 +95,8 @@ cat stack_env.txt
       steps {
         sh '''#!/bin/bash
           set -euo pipefail
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
+
           source stack_env.txt
           export AWS_DEFAULT_REGION="$REGION"
 
@@ -124,6 +132,7 @@ cat stack_env.txt
 
         sh '''#!/bin/bash
           set -euo pipefail
+          echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
 
           API_URL="$(cat api_url.txt)"
           export BASE_URL="$API_URL"
