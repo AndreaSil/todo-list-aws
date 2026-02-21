@@ -147,6 +147,10 @@ pipeline {
   
           git remote set-url origin https://github.com/AndreaSil/todo-list-aws.git
           git fetch origin --prune
+
+          git reset --hard
+          git clean -fd
+          rm -f api_url.txt
   
           git checkout -B master origin/master
           git reset --hard origin/master
