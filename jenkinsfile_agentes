@@ -20,8 +20,8 @@ pipeline {
         sh '''
           set -e
           echo "[RUNNING AS] user=$(whoami) host=$(hostname) pwd=$(pwd)"
-
-          git clone -b master https://github.com/AndreaSil/todo-list-aws.git .
+          echo "Branch: ${BRANCH_NAME}"
+        //  git clone -b master https://github.com/AndreaSil/todo-list-aws.git .
           git rev-parse --abbrev-ref HEAD
 
           curl -fsSL -o samconfig.toml \
